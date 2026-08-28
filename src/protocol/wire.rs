@@ -1075,6 +1075,9 @@ pub struct ClientShellTab {
     pub focused: bool,
     #[serde(deserialize_with = "deserialize_client_shell_agent_status")]
     pub agent_status: crate::api::schema::AgentStatus,
+    /// BEL received while the tab was not visible. Optional for generation-1 peers.
+    #[serde(default)]
+    pub urgent: bool,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -2868,6 +2871,7 @@ mod tests {
                 label: "main".into(),
                 custom_label: true,
                 zoomed: false,
+                urgent: false,
                 focused: true,
                 agent_status: crate::api::schema::AgentStatus::Idle,
             }],

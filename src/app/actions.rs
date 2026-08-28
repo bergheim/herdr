@@ -384,6 +384,31 @@ impl AppState {
             .is_some_and(|tab_idx| tab_idx == self.workspaces[ws_idx].active_tab)
     }
 
+    pub(crate) fn mark_tab_urgent_for_pane(
+        &mut self,
+        pane_id: PaneId,
+        active_surface_visible: bool,
+    ) -> bool {
+        let Some((ws_idx, tab_idx)) =
+            self.workspaces.iter().enumerate().find_map(|(ws_idx, ws)| {
+                ws.find_tab_index_for_pane(pane_id)
+                    .map(|tab_idx| (ws_idx, tab_idx))
+            })
+        else {
+            return false;
+        };
+        let active_tab = self.pane_is_in_active_tab(ws_idx, pane_id);
+        let tab = &mut self.workspaces[ws_idx].tabs[tab_idx];
+        if active_surface_visible && active_tab {
+            std::mem::take(&mut tab.urgent)
+        } else if tab.urgent {
+            false
+        } else {
+            tab.urgent = true;
+            true
+        }
+    }
+
     pub fn switch_workspace(&mut self, idx: usize) {
         if idx < self.workspaces.len() {
             let previous_focus = self.current_pane_focus_target();
@@ -462,7 +487,7 @@ impl AppState {
             return false;
         };
 
-        let mut changed = false;
+        let mut changed = std::mem::take(&mut tab.urgent);
         for pane in tab.panes.values_mut() {
             if !pane.seen {
                 pane.seen = true;
@@ -2129,6 +2154,28 @@ mod tests {
             state.mode = Mode::Terminal;
         }
         state
+    }
+
+    #[test]
+    fn terminal_bell_marks_background_tabs_until_acknowledged() {
+        let mut state = app_with_workspaces(&["test"]);
+        let background_tab = state.workspaces[0].test_add_tab(Some("worker"));
+        state.workspaces[0].switch_tab(background_tab);
+        let background_pane = state.workspaces[0].test_split(Direction::Horizontal);
+        state.workspaces[0].switch_tab(0);
+
+        assert!(!state.mark_tab_urgent_for_pane(PaneId::from_raw(u32::MAX), true));
+        assert!(state.mark_tab_urgent_for_pane(background_pane, true));
+        assert!(state.workspaces[0].tabs[background_tab].urgent);
+        assert!(!state.mark_tab_urgent_for_pane(background_pane, true));
+
+        assert!(state.switch_workspace_tab(0, background_tab));
+        assert!(!state.workspaces[0].tabs[background_tab].urgent);
+        assert!(!state.mark_tab_urgent_for_pane(background_pane, true));
+
+        assert!(state.mark_tab_urgent_for_pane(background_pane, false));
+        assert!(state.mark_active_tab_seen());
+        assert!(!state.workspaces[0].tabs[background_tab].urgent);
     }
 
     fn mark_linked_worktree(state: &mut AppState, ws_idx: usize) {

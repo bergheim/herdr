@@ -122,6 +122,7 @@ fn tab_bar_renders_endpoint_status_ellipses_and_clamps_to_useful_scroll() {
             label: number.to_string(),
             custom_label: false,
             zoomed: false,
+            urgent: false,
             focused: false,
             agent_status: AgentStatus::Idle,
         });
@@ -174,6 +175,7 @@ fn inactive_auto_named_tab_label_does_not_stack_terminal_faint() {
         label: "beta".into(),
         custom_label: false,
         zoomed: false,
+        urgent: false,
         focused: false,
         agent_status: AgentStatus::Idle,
     });

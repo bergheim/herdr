@@ -109,6 +109,11 @@ pub(crate) fn render_tab_bar(
             } else {
                 base
             }
+        } else if tab.urgent {
+            Style::default()
+                .fg(panel_contrast_fg(palette))
+                .bg(palette.red)
+                .add_modifier(Modifier::BOLD)
         } else if tab.custom_label {
             Style::default().fg(palette.overlay1).bg(palette.surface0)
         } else {
@@ -372,11 +377,9 @@ fn max_tab_scroll(widths: &[u16], available: u16) -> usize {
 }
 
 fn tab_label(tab: &ClientShellTab) -> String {
-    if tab.zoomed {
-        format!("{} Z", tab.label)
-    } else {
-        tab.label.clone()
-    }
+    let urgent = if tab.urgent && !tab.focused { "!" } else { "" };
+    let zoom = if tab.zoomed { " Z" } else { "" };
+    format!("{urgent}{}{zoom}", tab.label)
 }
 
 #[cfg(test)]

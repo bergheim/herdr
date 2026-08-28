@@ -356,6 +356,7 @@ fn mobile_background_workspace_uses_its_own_active_tab_status() {
         label: "logs".into(),
         custom_label: true,
         zoomed: false,
+        urgent: false,
         focused: false,
         agent_status: AgentStatus::Idle,
     });
@@ -381,6 +382,7 @@ fn mobile_background_workspace_uses_its_own_active_tab_status() {
             label: label.into(),
             custom_label: true,
             zoomed: false,
+            urgent: false,
             focused: false,
             agent_status: AgentStatus::Idle,
         });
@@ -671,4 +673,48 @@ fn mobile_switcher_scroll_close_and_width_transition_clear_mobile_hits() {
     assert_eq!(short.cells[0].symbol, "─");
     assert!(state.hits.mobile_close.is_empty());
     assert!(state.hits.mobile_targets.is_empty());
+}
+
+#[test]
+fn mobile_switcher_marks_urgent_background_tabs() {
+    let mut projected = snapshot();
+    projected.tabs.push(ClientShellTab {
+        tab_id: "tab_2".into(),
+        workspace_id: "ws_1".into(),
+        number: 2,
+        label: "worker".into(),
+        custom_label: true,
+        zoomed: false,
+        urgent: true,
+        focused: false,
+        agent_status: AgentStatus::Idle,
+    });
+    let mut state = ClientShellState::new(ClientShellConfig::from_config(&Config::default()));
+    state.set_snapshot(Box::new(projected));
+    state.set_pane_surface(surface());
+    state.mode = ClientShellMode::Navigate;
+    let red = state.config.palette.red;
+    let markers = |state: &mut ClientShellState| {
+        let frame = state.compose(44, 30).expect("mobile switcher");
+        let buffer = frame.to_ratatui_buffer().expect("buffer");
+        buffer
+            .content()
+            .iter()
+            .filter(|cell| cell.symbol() == "!")
+            .map(|cell| cell.fg)
+            .collect::<Vec<_>>()
+    };
+
+    assert_eq!(markers(&mut state), vec![red], "tab marker");
+
+    let mut update = state.snapshot.as_deref().expect("snapshot").clone();
+    update.focused_tab_id = Some("tab_2".into());
+    for tab in &mut update.tabs {
+        tab.focused = tab.tab_id == "tab_2";
+    }
+    state.set_snapshot(Box::new(update));
+    assert!(
+        markers(&mut state).is_empty(),
+        "focused tab is acknowledged"
+    );
 }

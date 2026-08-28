@@ -10,6 +10,7 @@ fn tab_overflow_controls_scroll_the_client_owned_tab_bar() {
         label: number.to_string(),
         custom_label: false,
         zoomed: false,
+        urgent: false,
         focused: false,
         agent_status: AgentStatus::Idle,
     }));
@@ -69,6 +70,7 @@ fn focused_last_overflow_tab_shows_its_full_label() {
             label: (*label).into(),
             custom_label: index > 0,
             zoomed: false,
+            urgent: false,
             focused: index == 7,
             agent_status: AgentStatus::Idle,
         })
@@ -522,4 +524,60 @@ fn close_confirmation_error_becomes_client_owned_overlay_and_stable_workspace_cl
         crate::api::schema::Method::WorkspaceClose(params)
             if params.workspace_id == "ws_1" && !params.close_group
     ));
+}
+
+#[test]
+fn urgent_tabs_render_markers_in_tab_bar() {
+    let mut projected = snapshot();
+    projected.tabs.push(ClientShellTab {
+        tab_id: "tab_2".into(),
+        workspace_id: "ws_1".into(),
+        number: 2,
+        label: "worker".into(),
+        custom_label: true,
+        zoomed: false,
+        urgent: true,
+        focused: false,
+        agent_status: AgentStatus::Idle,
+    });
+    let mut state = ClientShellState::new(ClientShellConfig::from_config(&Config::default()));
+    state.set_snapshot(Box::new(projected));
+    state.set_pane_surface(surface());
+    let palette = state.config.palette.clone();
+
+    let frame = state.compose(100, 20).expect("urgent tab bar");
+    let buffer = frame.to_ratatui_buffer().expect("buffer");
+    let (tab_rect, _) = state
+        .hits
+        .tabs
+        .iter()
+        .find(|(_, tab_id)| tab_id == "tab_2")
+        .expect("urgent tab hit")
+        .clone();
+    let marker = cell_symbol_position(&frame, tab_rect, "!worker");
+    assert_eq!(buffer[marker].bg, palette.red);
+
+    let mut update = state.snapshot.as_deref().expect("snapshot").clone();
+    update.focused_tab_id = Some("tab_2".into());
+    for tab in &mut update.tabs {
+        tab.focused = tab.tab_id == "tab_2";
+    }
+    state.set_snapshot(Box::new(update));
+    let frame = state.compose(100, 20).expect("focused urgent tab");
+    let (tab_rect, _) = state
+        .hits
+        .tabs
+        .iter()
+        .find(|(_, tab_id)| tab_id == "tab_2")
+        .expect("focused tab hit")
+        .clone();
+    let rows = frame_rows(&frame);
+    let tab_text = rows[tab_rect.y as usize]
+        .chars()
+        .skip(tab_rect.x as usize)
+        .take(tab_rect.width as usize)
+        .collect::<String>();
+    assert!(!tab_text.contains('!'), "{tab_text:?}");
+    let buffer = frame.to_ratatui_buffer().expect("buffer");
+    assert_eq!(buffer[(tab_rect.x, tab_rect.y)].bg, palette.accent);
 }

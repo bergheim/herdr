@@ -902,15 +902,20 @@ fn mobile_items(
             } else {
                 format!("tab {}", tab.label)
             };
+            let urgent = tab.urgent && !tab.focused;
             let label = format!(
-                "  {}",
-                crate::ui::truncate_end(&label, usize::from(content_width.saturating_sub(3)),)
+                "  {}{}",
+                if urgent { "! " } else { "" },
+                crate::ui::truncate_end(
+                    &label,
+                    usize::from(content_width.saturating_sub(if urgent { 5 } else { 3 })),
+                )
             );
             items.push(MobileItem {
                 lines: vec![Line::from(Span::styled(
                     label,
                     Style::default()
-                        .fg(palette.text)
+                        .fg(if urgent { palette.red } else { palette.text })
                         .bg(background)
                         .add_modifier(Modifier::BOLD),
                 ))],

@@ -452,6 +452,7 @@ impl Workspace {
         if idx < self.tabs.len() {
             self.active_tab = idx;
             if let Some(tab) = self.tabs.get_mut(idx) {
+                tab.urgent = false;
                 for pane in tab.panes.values_mut() {
                     pane.seen = true;
                 }
@@ -1184,6 +1185,7 @@ impl Workspace {
             panes,
             runtimes: HashMap::new(),
             zoomed: false,
+            urgent: false,
             events,
             render_notify,
             render_dirty,
@@ -1240,6 +1242,7 @@ impl Workspace {
             panes,
             runtimes: HashMap::new(),
             zoomed: false,
+            urgent: false,
             events,
             render_notify,
             render_dirty,

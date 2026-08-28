@@ -6529,6 +6529,12 @@ fn client_config_reload_request_refreshes_attached_clients() {
 #[test]
 fn terminal_bell_targets_foreground_client_only() {
     let mut server = test_headless_server();
+    let mut workspace = crate::workspace::Workspace::test_new("test");
+    let background_tab = workspace.test_add_tab(Some("worker"));
+    let foreground_pane = workspace.tabs[0].root_pane;
+    let background_pane = workspace.tabs[background_tab].root_pane;
+    server.app.state.workspaces = vec![workspace];
+    server.app.state.active = Some(0);
     let (background_tx, background_control_rx, _background_rx) = test_client_writer();
     let (foreground_tx, foreground_control_rx, _foreground_rx) = test_client_writer();
 
@@ -6555,11 +6561,12 @@ fn terminal_bell_targets_foreground_client_only() {
     server.foreground_client_id = Some(2);
 
     let changed = server.handle_internal_event_with_forwarding(AppEvent::TerminalBell {
-        pane_id: crate::layout::PaneId::from_raw(1),
+        pane_id: foreground_pane,
         count: 3,
     });
 
     assert!(!changed);
+    assert!(!server.app.state.workspaces[0].tabs[0].urgent);
     match read_server_message(
         foreground_control_rx
             .recv_timeout(Duration::from_millis(100))
@@ -6575,11 +6582,37 @@ fn terminal_bell_targets_foreground_client_only() {
         "background client should not receive terminal bells"
     );
 
+    assert!(
+        server.handle_internal_event_with_forwarding(AppEvent::TerminalBell {
+            pane_id: background_pane,
+            count: 1,
+        })
+    );
+    assert!(server.app.state.workspaces[0].tabs[background_tab].urgent);
+    let _ = foreground_control_rx
+        .recv_timeout(Duration::from_millis(100))
+        .expect("foreground terminal bell message");
+    assert!(
+        !server.handle_internal_event_with_forwarding(AppEvent::TerminalBell {
+            pane_id: background_pane,
+            count: 1,
+        })
+    );
+    let _ = foreground_control_rx
+        .recv_timeout(Duration::from_millis(100))
+        .expect("repeated foreground terminal bell message");
+
     server.foreground_client_id = None;
-    server.handle_internal_event_with_forwarding(AppEvent::TerminalBell {
-        pane_id: crate::layout::PaneId::from_raw(1),
-        count: 1,
-    });
+    assert!(
+        server.handle_internal_event_with_forwarding(AppEvent::TerminalBell {
+            pane_id: foreground_pane,
+            count: 1,
+        })
+    );
+    assert!(server.app.state.workspaces[0].tabs[0].urgent);
+    server.foreground_client_id = Some(2);
+    server.sync_foreground_client_state();
+    assert!(!server.app.state.workspaces[0].tabs[0].urgent);
     assert!(
         foreground_control_rx
             .recv_timeout(Duration::from_millis(50))

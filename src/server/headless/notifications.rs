@@ -329,7 +329,11 @@ impl HeadlessServer {
                         count, "dropped terminal bell without a foreground client"
                     );
                 }
-                false
+                self.app.state.mark_tab_urgent_for_pane(
+                    *pane_id,
+                    self.foreground_client_id.is_some()
+                        && self.foreground_client_outer_focus() != Some(false),
+                )
             }
             AppEvent::ClipboardWrite { content } => {
                 // Clipboard writes are client-local side effects. Forward them only to
