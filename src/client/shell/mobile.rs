@@ -821,6 +821,8 @@ fn mobile_items(
             } else {
                 status_color(workspace.agent_status, palette)
             };
+            let urgent =
+                super::workspace_has_urgent_tab(endpoint.snapshot, &workspace.workspace_id);
             let stale_detail = if endpoint.stale() {
                 format!(" · {}", mobile_endpoint_state(endpoint.status))
             } else {
@@ -844,16 +846,18 @@ fn mobile_items(
                         Span::styled(
                             crate::ui::truncate_end(
                                 &format!("{} · {name}", endpoint.label),
-                                usize::from(content_width.saturating_sub(if entry.indented {
-                                    8
-                                } else {
-                                    5
-                                })),
+                                usize::from(content_width.saturating_sub(
+                                    if entry.indented { 8 } else { 5 } + if urgent { 2 } else { 0 },
+                                )),
                             ),
                             Style::default()
                                 .fg(foreground)
                                 .bg(background)
                                 .add_modifier(Modifier::BOLD | dim),
+                        ),
+                        Span::styled(
+                            if urgent { " !" } else { "" },
+                            Style::default().fg(palette.red).bg(background),
                         ),
                     ]),
                     Line::from(Span::styled(

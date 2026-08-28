@@ -236,6 +236,13 @@ fn status_color(
     }
 }
 
+fn workspace_has_urgent_tab(snapshot: &ClientShellSnapshot, workspace_id: &str) -> bool {
+    snapshot
+        .tabs
+        .iter()
+        .any(|tab| tab.urgent && tab.workspace_id == workspace_id)
+}
+
 fn panel_contrast_fg(palette: &Palette) -> ratatui::style::Color {
     match palette.panel_bg {
         ratatui::style::Color::Reset => palette.surface_dim,

@@ -497,6 +497,14 @@ pub(super) fn render_expanded(
                     collapsed_groups,
                     palette,
                 );
+                super::sidebar::render_urgent_space_marker(
+                    buffer,
+                    rect,
+                    snapshot,
+                    &workspace.workspace_id,
+                    group_toggle.is_some(),
+                    palette,
+                );
                 hits.workspaces.push(WorkspaceHit {
                     rect,
                     endpoint_id: endpoint.endpoint_id.clone(),

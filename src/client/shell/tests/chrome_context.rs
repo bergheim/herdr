@@ -527,7 +527,7 @@ fn close_confirmation_error_becomes_client_owned_overlay_and_stable_workspace_cl
 }
 
 #[test]
-fn urgent_tabs_render_markers_in_tab_bar() {
+fn urgent_tabs_render_markers_in_tab_bar_and_sidebars() {
     let mut projected = snapshot();
     projected.tabs.push(ClientShellTab {
         tab_id: "tab_2".into(),
@@ -556,6 +556,18 @@ fn urgent_tabs_render_markers_in_tab_bar() {
         .clone();
     let marker = cell_symbol_position(&frame, tab_rect, "!worker");
     assert_eq!(buffer[marker].bg, palette.red);
+    let workspace = state.hits.workspaces[0].rect;
+    let space_marker = &buffer[(workspace.right() - 1, workspace.y)];
+    assert_eq!(space_marker.symbol(), "!");
+    assert_eq!(space_marker.fg, palette.red);
+
+    state.sidebar_collapsed = true;
+    let frame = state.compose(100, 20).expect("collapsed urgent sidebar");
+    let buffer = frame.to_ratatui_buffer().expect("buffer");
+    let workspace = state.hits.workspaces[0].rect;
+    let number = &buffer[(workspace.x, workspace.y)];
+    assert_eq!(number.symbol(), "1");
+    assert_eq!(number.fg, palette.red);
 
     let mut update = state.snapshot.as_deref().expect("snapshot").clone();
     update.focused_tab_id = Some("tab_2".into());
@@ -563,6 +575,7 @@ fn urgent_tabs_render_markers_in_tab_bar() {
         tab.focused = tab.tab_id == "tab_2";
     }
     state.set_snapshot(Box::new(update));
+    state.sidebar_collapsed = false;
     let frame = state.compose(100, 20).expect("focused urgent tab");
     let (tab_rect, _) = state
         .hits

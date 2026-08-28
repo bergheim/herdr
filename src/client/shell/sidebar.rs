@@ -84,6 +84,12 @@ pub(crate) fn render_collapsed_sidebar(
         } else {
             Style::default().fg(palette.overlay0)
         };
+        // The collapsed rail has no spare column, so urgency tints the number.
+        let number_style = if super::workspace_has_urgent_tab(snapshot, &workspace.workspace_id) {
+            number_style.fg(palette.red).add_modifier(Modifier::BOLD)
+        } else {
+            number_style
+        };
         put_text(
             buffer,
             rect.x,
@@ -340,6 +346,14 @@ pub(crate) fn render_sidebar(
             snapshot,
             entry.index,
             state.collapsed_groups,
+            palette,
+        );
+        render_urgent_space_marker(
+            buffer,
+            rect,
+            snapshot,
+            &workspace.workspace_id,
+            group_toggle.is_some(),
             palette,
         );
         hits.workspaces.push(WorkspaceHit {
@@ -628,6 +642,30 @@ pub(in crate::client::shell) fn render_parent_group_toggle(
         Style::default().fg(palette.accent),
     );
     Some((toggle, key))
+}
+
+pub(in crate::client::shell) fn render_urgent_space_marker(
+    buffer: &mut Buffer,
+    workspace_rect: Rect,
+    snapshot: &ClientShellSnapshot,
+    workspace_id: &str,
+    has_group_toggle: bool,
+    palette: &Palette,
+) {
+    if !super::workspace_has_urgent_tab(snapshot, workspace_id) {
+        return;
+    }
+    let x = workspace_rect
+        .right()
+        .saturating_sub(if has_group_toggle { 2 } else { 1 });
+    put_text(
+        buffer,
+        x,
+        workspace_rect.y,
+        u16::from(x >= workspace_rect.x),
+        "!",
+        Style::default().fg(palette.red),
+    );
 }
 
 pub(in crate::client::shell) fn displayed_workspace_status(

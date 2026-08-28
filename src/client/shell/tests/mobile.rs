@@ -676,7 +676,7 @@ fn mobile_switcher_scroll_close_and_width_transition_clear_mobile_hits() {
 }
 
 #[test]
-fn mobile_switcher_marks_urgent_background_tabs() {
+fn mobile_switcher_marks_urgent_spaces_and_background_tabs() {
     let mut projected = snapshot();
     projected.tabs.push(ClientShellTab {
         tab_id: "tab_2".into(),
@@ -705,7 +705,7 @@ fn mobile_switcher_marks_urgent_background_tabs() {
             .collect::<Vec<_>>()
     };
 
-    assert_eq!(markers(&mut state), vec![red], "tab marker");
+    assert_eq!(markers(&mut state), vec![red, red], "space and tab markers");
 
     let mut update = state.snapshot.as_deref().expect("snapshot").clone();
     update.focused_tab_id = Some("tab_2".into());
@@ -713,8 +713,9 @@ fn mobile_switcher_marks_urgent_background_tabs() {
         tab.focused = tab.tab_id == "tab_2";
     }
     state.set_snapshot(Box::new(update));
-    assert!(
-        markers(&mut state).is_empty(),
-        "focused tab is acknowledged"
+    assert_eq!(
+        markers(&mut state),
+        vec![red],
+        "only the space marker remains"
     );
 }
