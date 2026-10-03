@@ -7871,3 +7871,51 @@ fn no_handle_internal_event_bypass_in_module() {
         bypass_lines.join("\n  ")
     );
 }
+
+#[tokio::test]
+async fn shell_client_tab_switch_then_background_bell_marks_tab_urgent() {
+    let mut server = test_headless_server();
+    let mut workspace = crate::workspace::Workspace::test_new("bell-repro");
+    let first_pane = workspace.tabs[0].root_pane;
+    let second_tab = workspace.test_add_tab(Some("second"));
+    server.app.state.workspaces = vec![workspace];
+    server.app.state.ensure_test_terminals();
+    server.app.state.active = Some(0);
+    server.app.state.selected = 0;
+    server.app.state.mode = crate::app::Mode::Terminal;
+    let second_tab_id = server.app.public_tab_id(0, second_tab).unwrap();
+    let (control, _) = connect_matching_test_shell(&mut server, 61);
+    let _ = control.recv().expect("snapshot");
+    server.clients.get_mut(&61).unwrap().outer_terminal_focus = Some(true);
+
+    let (respond_to, _response_rx) = std::sync::mpsc::channel();
+    server.handle_client_shell_api_request(
+        61,
+        crate::api::ApiRequestMessage {
+            request: crate::api::schema::Request {
+                id: "focus".into(),
+                method: crate::api::schema::Method::TabFocus(crate::api::schema::TabTarget {
+                    tab_id: second_tab_id,
+                }),
+            },
+            respond_to,
+            response_write_complete: None,
+        },
+    );
+    assert!(
+        server.handle_internal_event_with_forwarding(AppEvent::TerminalBell {
+            pane_id: first_pane,
+            count: 1,
+        })
+    );
+    assert!(server.app.state.workspaces[0].tabs[0].urgent);
+    let snapshot = crate::server::client_shell::snapshot(
+        &server.app,
+        "boot",
+        1,
+        None,
+        server.clients[&61].shell_location.as_ref(),
+    );
+    assert!(snapshot.tabs[0].urgent, "{:?}", snapshot.tabs);
+    shutdown_test_runtimes(&mut server);
+}
