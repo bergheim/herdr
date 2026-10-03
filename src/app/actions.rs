@@ -1845,10 +1845,18 @@ impl AppState {
         let is_active_tab = self.pane_is_in_active_tab(ws_idx, pane_id);
         let suppress_active_tab_notifications =
             active_tab_suppresses_notifications(is_active_tab, self.outer_terminal_focus);
-        let pane = self.workspaces[ws_idx]
+        let tab = self.workspaces[ws_idx]
             .tabs
             .iter_mut()
-            .find_map(|tab| tab.panes.get_mut(&pane_id))?;
+            .find(|tab| tab.panes.contains_key(&pane_id))?;
+        if !suppress_completion
+            && !suppress_active_tab_notifications
+            && change.state == AgentState::Blocked
+            && change.previous_state != AgentState::Blocked
+        {
+            tab.urgent = true;
+        }
+        let pane = tab.panes.get_mut(&pane_id)?;
 
         if change.state != AgentState::Idle {
             pane.seen = true;
@@ -3100,6 +3108,37 @@ mod tests {
 
         let pane = state.workspaces[1].panes.get(&bg_pane_id).unwrap();
         assert!(pane.seen);
+    }
+
+    #[test]
+    fn background_agent_blocking_marks_tab_urgent() {
+        let mut app = app_with_workspaces(&["active", "background"]);
+        app.active = Some(0);
+        let background_pane = app.workspaces[1].tabs[0].root_pane;
+        let active_pane = app.workspaces[0].tabs[0].root_pane;
+        for pane_id in [background_pane, active_pane] {
+            app.handle_app_event(AppEvent::AgentProcessDetected {
+                pane_id,
+                agent: Agent::Pi,
+                observed_at: Instant::now(),
+            });
+            for state in [AgentState::Working, AgentState::Blocked] {
+                app.handle_app_event(AppEvent::StateChanged {
+                    pane_id,
+                    agent: Some(Agent::Pi),
+                    state,
+                    visible_blocker: state == AgentState::Blocked,
+                    visible_working: state == AgentState::Working,
+                    process_exited: false,
+                    observed_at: Instant::now(),
+                });
+            }
+        }
+
+        assert!(app.workspaces[1].tabs[0].urgent);
+        assert!(!app.workspaces[0].tabs[0].urgent);
+        app.switch_workspace(1);
+        assert!(!app.workspaces[1].tabs[0].urgent);
     }
 
     fn assert_completion_guard_sequence(
