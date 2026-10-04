@@ -236,6 +236,12 @@ fn status_color(
     }
 }
 
+/// Urgency is server-wide, but tab focus is per client: the tab this client is
+/// looking at is already acknowledged here.
+fn tab_shows_urgent(tab: &ClientShellTab) -> bool {
+    tab.urgent && !tab.focused
+}
+
 fn workspace_has_urgent_tab(snapshot: &ClientShellSnapshot, workspace_id: &str) -> bool {
     snapshot
         .tabs

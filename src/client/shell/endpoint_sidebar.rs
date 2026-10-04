@@ -502,7 +502,7 @@ pub(super) fn render_expanded(
                     rect,
                     snapshot,
                     &workspace.workspace_id,
-                    group_toggle.is_some(),
+                    group_toggle.as_ref(),
                     palette,
                 );
                 hits.workspaces.push(WorkspaceHit {

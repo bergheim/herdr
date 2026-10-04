@@ -46,7 +46,7 @@ pub struct Tab {
     #[cfg(test)]
     pub runtimes: HashMap<PaneId, TerminalRuntime>,
     pub zoomed: bool,
-    /// BEL received while this tab was not visible; cleared on acknowledgement.
+    /// Needs attention (bell or newly blocked agent) since last viewed.
     pub(crate) urgent: bool,
     pub events: mpsc::Sender<AppEvent>,
     pub(crate) render_notify: Arc<Notify>,
@@ -206,6 +206,15 @@ impl Tab {
 
     pub fn set_custom_name(&mut self, name: String) {
         self.custom_name = Some(name);
+    }
+
+    /// Acknowledges the tab: clears urgency and marks every pane seen.
+    pub(crate) fn mark_seen(&mut self) -> bool {
+        let mut changed = std::mem::take(&mut self.urgent);
+        for pane in self.panes.values_mut() {
+            changed |= !std::mem::replace(&mut pane.seen, true);
+        }
+        changed
     }
 
     pub fn split_focused_command(

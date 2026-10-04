@@ -353,7 +353,7 @@ pub(crate) fn render_sidebar(
             rect,
             snapshot,
             &workspace.workspace_id,
-            group_toggle.is_some(),
+            group_toggle.as_ref(),
             palette,
         );
         hits.workspaces.push(WorkspaceHit {
@@ -649,20 +649,21 @@ pub(in crate::client::shell) fn render_urgent_space_marker(
     workspace_rect: Rect,
     snapshot: &ClientShellSnapshot,
     workspace_id: &str,
-    has_group_toggle: bool,
+    group_toggle: Option<&(Rect, String)>,
     palette: &Palette,
 ) {
     if !super::workspace_has_urgent_tab(snapshot, workspace_id) {
         return;
     }
-    let x = workspace_rect
-        .right()
-        .saturating_sub(if has_group_toggle { 2 } else { 1 });
-    put_text(
+    let right = group_toggle.map_or(workspace_rect.right(), |(toggle, _)| toggle.x);
+    let area = Rect {
+        width: right.saturating_sub(workspace_rect.x),
+        ..workspace_rect
+    };
+    put_right_text(
         buffer,
-        x,
+        area,
         workspace_rect.y,
-        u16::from(x >= workspace_rect.x),
         "!",
         Style::default().fg(palette.red),
     );

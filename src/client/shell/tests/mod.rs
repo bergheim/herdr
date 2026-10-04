@@ -67,6 +67,29 @@ pub(super) fn snapshot() -> ClientShellSnapshot {
     }
 }
 
+/// `snapshot()` plus an unfocused urgent tab `tab_2` labelled "worker".
+fn snapshot_with_urgent_tab() -> ClientShellSnapshot {
+    let mut snapshot = snapshot();
+    let mut worker = snapshot.tabs[0].clone();
+    worker.tab_id = "tab_2".into();
+    worker.number = 2;
+    worker.label = "worker".into();
+    worker.custom_label = true;
+    worker.urgent = true;
+    worker.focused = false;
+    snapshot.tabs.push(worker);
+    snapshot
+}
+
+fn focus_tab(state: &mut ClientShellState, tab_id: &str) {
+    let mut update = state.snapshot.as_deref().expect("snapshot").clone();
+    update.focused_tab_id = Some(tab_id.into());
+    for tab in &mut update.tabs {
+        tab.focused = tab.tab_id == tab_id;
+    }
+    state.set_snapshot(Box::new(update));
+}
+
 fn worktree_list_result(open_workspace_id: Option<&str>) -> crate::api::schema::ResponseResult {
     crate::api::schema::ResponseResult::WorktreeList {
         source: crate::api::schema::WorktreeSourceInfo {

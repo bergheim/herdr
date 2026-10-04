@@ -397,16 +397,11 @@ impl AppState {
         else {
             return false;
         };
-        let active_tab = self.pane_is_in_active_tab(ws_idx, pane_id);
+        let urgent = !(active_surface_visible
+            && self.active == Some(ws_idx)
+            && self.workspaces[ws_idx].active_tab == tab_idx);
         let tab = &mut self.workspaces[ws_idx].tabs[tab_idx];
-        if active_surface_visible && active_tab {
-            std::mem::take(&mut tab.urgent)
-        } else if tab.urgent {
-            false
-        } else {
-            tab.urgent = true;
-            true
-        }
+        std::mem::replace(&mut tab.urgent, urgent) != urgent
     }
 
     pub fn switch_workspace(&mut self, idx: usize) {
@@ -479,22 +474,10 @@ impl AppState {
         let Some(ws_idx) = self.active else {
             return false;
         };
-        let Some(tab) = self
-            .workspaces
+        self.workspaces
             .get_mut(ws_idx)
             .and_then(crate::workspace::Workspace::active_tab_mut)
-        else {
-            return false;
-        };
-
-        let mut changed = std::mem::take(&mut tab.urgent);
-        for pane in tab.panes.values_mut() {
-            if !pane.seen {
-                pane.seen = true;
-                changed = true;
-            }
-        }
-        changed
+            .is_some_and(crate::workspace::Tab::mark_seen)
     }
 
     pub fn move_workspace(&mut self, source_idx: usize, insert_idx: usize) -> bool {
@@ -1850,9 +1833,10 @@ impl AppState {
             .iter_mut()
             .find(|tab| tab.panes.contains_key(&pane_id))?;
         if !suppress_completion
-            && !suppress_active_tab_notifications
-            && change.state == AgentState::Blocked
-            && change.previous_state != AgentState::Blocked
+            && notification_toast_for_effective_state_change(
+                suppress_active_tab_notifications,
+                change,
+            ) == Some(ToastKind::NeedsAttention)
         {
             tab.urgent = true;
         }

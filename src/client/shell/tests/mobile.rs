@@ -677,20 +677,8 @@ fn mobile_switcher_scroll_close_and_width_transition_clear_mobile_hits() {
 
 #[test]
 fn mobile_switcher_marks_urgent_spaces_and_background_tabs() {
-    let mut projected = snapshot();
-    projected.tabs.push(ClientShellTab {
-        tab_id: "tab_2".into(),
-        workspace_id: "ws_1".into(),
-        number: 2,
-        label: "worker".into(),
-        custom_label: true,
-        zoomed: false,
-        urgent: true,
-        focused: false,
-        agent_status: AgentStatus::Idle,
-    });
     let mut state = ClientShellState::new(ClientShellConfig::from_config(&Config::default()));
-    state.set_snapshot(Box::new(projected));
+    state.set_snapshot(Box::new(snapshot_with_urgent_tab()));
     state.set_pane_surface(surface());
     state.mode = ClientShellMode::Navigate;
     let red = state.config.palette.red;
@@ -707,12 +695,7 @@ fn mobile_switcher_marks_urgent_spaces_and_background_tabs() {
 
     assert_eq!(markers(&mut state), vec![red, red], "space and tab markers");
 
-    let mut update = state.snapshot.as_deref().expect("snapshot").clone();
-    update.focused_tab_id = Some("tab_2".into());
-    for tab in &mut update.tabs {
-        tab.focused = tab.tab_id == "tab_2";
-    }
-    state.set_snapshot(Box::new(update));
+    focus_tab(&mut state, "tab_2");
     assert_eq!(
         markers(&mut state),
         vec![red],

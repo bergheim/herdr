@@ -821,8 +821,12 @@ fn mobile_items(
             } else {
                 status_color(workspace.agent_status, palette)
             };
-            let urgent =
-                super::workspace_has_urgent_tab(endpoint.snapshot, &workspace.workspace_id);
+            let urgent_marker =
+                if super::workspace_has_urgent_tab(endpoint.snapshot, &workspace.workspace_id) {
+                    " !"
+                } else {
+                    ""
+                };
             let stale_detail = if endpoint.stale() {
                 format!(" · {}", mobile_endpoint_state(endpoint.status))
             } else {
@@ -847,7 +851,8 @@ fn mobile_items(
                             crate::ui::truncate_end(
                                 &format!("{} · {name}", endpoint.label),
                                 usize::from(content_width.saturating_sub(
-                                    if entry.indented { 8 } else { 5 } + if urgent { 2 } else { 0 },
+                                    if entry.indented { 8 } else { 5 }
+                                        + display_width(urgent_marker),
                                 )),
                             ),
                             Style::default()
@@ -856,7 +861,7 @@ fn mobile_items(
                                 .add_modifier(Modifier::BOLD | dim),
                         ),
                         Span::styled(
-                            if urgent { " !" } else { "" },
+                            urgent_marker,
                             Style::default().fg(palette.red).bg(background),
                         ),
                     ]),
@@ -906,13 +911,13 @@ fn mobile_items(
             } else {
                 format!("tab {}", tab.label)
             };
-            let urgent = tab.urgent && !tab.focused;
+            let urgent = super::tab_shows_urgent(tab);
+            let prefix = if urgent { "  ! " } else { "  " };
             let label = format!(
-                "  {}{}",
-                if urgent { "! " } else { "" },
+                "{prefix}{}",
                 crate::ui::truncate_end(
                     &label,
-                    usize::from(content_width.saturating_sub(if urgent { 5 } else { 3 })),
+                    usize::from(content_width.saturating_sub(display_width(prefix) + 1)),
                 )
             );
             items.push(MobileItem {
