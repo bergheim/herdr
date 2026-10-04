@@ -36,23 +36,36 @@ pub fn show_notification(title: &str, body: Option<&str>) -> io::Result<bool> {
         return Ok(false);
     };
 
+    let sequence = notification_sequence(backend, title, body, std::env::var_os("TMUX").is_some());
+    let mut stdout = io::stdout();
+    stdout.write_all(&sequence)?;
+    stdout.flush()?;
+    Ok(true)
+}
+
+/// Desktop notifications alone do not mark the outer window urgent, so a
+/// window manager cannot jump to it. A trailing BEL lets the terminal raise
+/// its attention hint (Ghostty `bell-features = attention`). It stays outside
+/// any tmux passthrough so tmux applies its own bell handling.
+fn notification_sequence(
+    backend: TerminalNotificationBackend,
+    title: &str,
+    body: Option<&str>,
+    in_tmux: bool,
+) -> Vec<u8> {
     let sequence = match backend {
         TerminalNotificationBackend::Ghostty
         | TerminalNotificationBackend::Iterm2
         | TerminalNotificationBackend::WezTerm => build_osc9_notification(title, body),
         TerminalNotificationBackend::Kitty => build_osc99_notification(title, body),
     };
-
-    let sequence = if std::env::var_os("TMUX").is_some() {
+    let mut sequence = if in_tmux {
         wrap_tmux_passthrough(&sequence)
     } else {
         sequence
     };
-
-    let mut stdout = io::stdout();
-    stdout.write_all(&sequence)?;
-    stdout.flush()?;
-    Ok(true)
+    sequence.push(b'\x07');
+    sequence
 }
 
 pub fn split_message(message: &str) -> (&str, Option<&str>) {
@@ -133,6 +146,18 @@ mod tests {
             .expect("utf8");
         assert!(sequence.contains("]99;i=1:d=0;pi finished"));
         assert!(sequence.contains("]99;i=1:p=body;ws · 1"));
+    }
+
+    #[test]
+    fn notification_ends_with_bell_outside_tmux_passthrough() {
+        let plain =
+            notification_sequence(TerminalNotificationBackend::Ghostty, "claude", None, false);
+        assert_eq!(plain, b"\x1b]9;claude\x1b\\\x07");
+
+        let wrapped =
+            notification_sequence(TerminalNotificationBackend::Ghostty, "claude", None, true);
+        assert!(wrapped.starts_with(b"\x1bPtmux;"));
+        assert!(wrapped.ends_with(b"\x1b\\\x07"));
     }
 
     #[test]
