@@ -123,7 +123,7 @@ use notifications::{handle_notify, handle_shell_notification_effects};
 #[cfg(test)]
 use notifications::{handle_notify_with_notifiers, sound_from_notify_message};
 #[cfg(test)]
-use terminal_sessions::terminal_control_command_from_json;
+use terminal_sessions::{terminal_control_command_from_json, terminal_session_record};
 
 #[cfg(unix)]
 use std::collections::HashMap;

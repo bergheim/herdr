@@ -123,37 +123,50 @@ fn connect_terminal_session_stream(
 fn write_terminal_session_output(mut stream: LocalStream) -> io::Result<()> {
     let mut stdout = io::stdout().lock();
     loop {
-        match protocol::read_message(&mut stream, MAX_GRAPHICS_FRAME_SIZE) {
-            Ok(ServerMessage::Terminal(frame)) => {
-                let encoded = base64::engine::general_purpose::STANDARD.encode(&frame.bytes);
-                let line = serde_json::json!({
-                    "type": "terminal.frame",
-                    "seq": frame.seq,
-                    "encoding": "ansi",
-                    "width": frame.width,
-                    "height": frame.height,
-                    "full": frame.full,
-                    "bytes": encoded,
-                });
-                serde_json::to_writer(&mut stdout, &line)?;
-                stdout.write_all(b"\n")?;
-                stdout.flush()?;
-            }
-            Ok(ServerMessage::ServerShutdown { reason }) => {
-                let line = serde_json::json!({
-                    "type": "terminal.closed",
-                    "reason": reason,
-                });
-                serde_json::to_writer(&mut stdout, &line)?;
-                stdout.write_all(b"\n")?;
-                stdout.flush()?;
-                return Ok(());
-            }
-            Ok(ServerMessage::Graphics { .. }) => {}
-            Ok(_) => {}
+        let message = match protocol::read_message(&mut stream, MAX_GRAPHICS_FRAME_SIZE) {
+            Ok(message) => message,
             Err(protocol::FramingError::UnexpectedEof) => return Ok(()),
             Err(err) => return Err(io::Error::other(err.to_string())),
+        };
+        if let Some(record) = terminal_session_record(&message) {
+            serde_json::to_writer(&mut stdout, &record)?;
+            stdout.write_all(b"\n")?;
+            stdout.flush()?;
         }
+        if matches!(message, ServerMessage::ServerShutdown { .. }) {
+            return Ok(());
+        }
+    }
+}
+
+/// The JSON record a session stream prints for a server message, if any.
+pub(super) fn terminal_session_record(message: &ServerMessage) -> Option<serde_json::Value> {
+    match message {
+        ServerMessage::Terminal(frame) => Some(serde_json::json!({
+            "type": "terminal.frame",
+            "seq": frame.seq,
+            "encoding": "ansi",
+            "width": frame.width,
+            "height": frame.height,
+            "full": frame.full,
+            "bytes": base64::engine::general_purpose::STANDARD.encode(&frame.bytes),
+        })),
+        ServerMessage::ServerShutdown { reason } => Some(serde_json::json!({
+            "type": "terminal.closed",
+            "reason": reason,
+        })),
+        // The keyboard protocol the pane's application negotiated. A consumer that
+        // relays a real keyboard must put that keyboard in the same mode, or the
+        // application receives legacy encodings it no longer decodes.
+        ServerMessage::DirectTerminalKeyboardProtocol {
+            flags,
+            modify_other_keys_level,
+        } => Some(serde_json::json!({
+            "type": "terminal.keyboard",
+            "flags": flags,
+            "modify_other_keys_level": modify_other_keys_level,
+        })),
+        _ => None,
     }
 }
 

@@ -839,6 +839,27 @@ fn decode_clipboard_payload_rejects_invalid_base64() {
 }
 
 #[test]
+fn terminal_session_reports_pane_keyboard_protocol() {
+    let record = terminal_session_record(&ServerMessage::DirectTerminalKeyboardProtocol {
+        flags: 7,
+        modify_other_keys_level: 2,
+    })
+    .unwrap();
+    assert_eq!(
+        record,
+        serde_json::json!({
+            "type": "terminal.keyboard",
+            "flags": 7,
+            "modify_other_keys_level": 2,
+        })
+    );
+    assert!(
+        terminal_session_record(&ServerMessage::ClientShellKeyboardReportAll { enabled: true })
+            .is_none()
+    );
+}
+
+#[test]
 fn terminal_control_input_command_accepts_text() {
     let action =
         terminal_control_command_from_json(r#"{"type":"terminal.input","text":"hello"}"#).unwrap();

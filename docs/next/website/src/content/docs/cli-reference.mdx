@@ -383,6 +383,13 @@ terminal, or agent target. It prints the same newline-delimited
 newline-delimited JSON commands on stdin: `terminal.input`, `terminal.resize`,
 `terminal.scroll`, `terminal.mouse`, and `terminal.release`. One controller can
 own a terminal at a time; use `--takeover` to replace it.
+Control mode also prints a `terminal.keyboard` record whenever the application's
+keyboard protocol changes, for example
+`{"type":"terminal.keyboard","flags":7,"modify_other_keys_level":0}`. `flags`
+are the Kitty keyboard protocol flags (0 means legacy encoding) and
+`modify_other_keys_level` is the xterm modifyOtherKeys level. `terminal.input`
+bytes reach the application unchanged, so a controller that relays a real
+keyboard should switch that keyboard to the same mode.
 `terminal.mouse` sends one mouse event at a zero-based cell of the controller's
 viewport, for example
 `{"type":"terminal.mouse","action":"down","button":"left","column":12,"row":5}`.
